@@ -1,0 +1,12 @@
+version: '3.3'
+
+services:
+  app:
+    image: tsmdl
+    build:
+      context: tsmdl
+    volumes:
+      - "./tsmdl/app:/app"
+    ports:
+      - "8000:8000"
+    entrypoint: "/app/start.sh"
