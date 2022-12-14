@@ -86,31 +86,8 @@ class ObservationList(BaseModel):
     value: List[Observation]
 
 
-#         self.db = psycopg2.connect(database_settings.get('url'))
 conn = psycopg2.connect("postgres://postgres:postgres@host.docker.internal/postgres")
 # conn = psycopg2.connect("postgres://postgres:postgres@localhost/postgres")
-# FakeDB
-db = {
-    "influxdb_01": {
-        "altPlestlin": {
-            "AirTemp": [
-                (datetime(year=2022, month=1, day=1), 1.0),
-                (datetime(year=2022, month=1, day=2), 2.0),
-            ],
-            "AirHumidity": [],
-            "LeafWetness": [],
-            "SoilMosture_0.1m": [],
-        },
-        "altTellin": {},
-        "beestland": {},
-        "zeitlow-BF1": {},
-    },
-    "influxdb_02": {},
-    "influxdb_03": {},
-    "timescaleDB__db01": {},
-    "timescaleDB__db02": {},
-}
-
 
 @app.get("/Datasources", response_model=DatasourceList)
 def get_datasources():
@@ -282,6 +259,7 @@ def get_observations(
     raise HTTPException(status_code=501, detail="Not yet implemented")
 
     return ObservationList(value=result_list)
+
 
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=8000)
