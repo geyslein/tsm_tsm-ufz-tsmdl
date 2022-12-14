@@ -2,11 +2,12 @@ version: '3.3'
 
 services:
   app:
-    image: tsmdl
     build:
-      context: tsmdl
+      context: .
     volumes:
-      - "./tsmdl/app:/app"
+      - "./app:/app"
     ports:
       - "8000:8000"
     entrypoint: "/app/start.sh"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
