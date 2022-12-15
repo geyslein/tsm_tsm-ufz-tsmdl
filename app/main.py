@@ -16,7 +16,6 @@ The APIs here doesn't include pagination for now.
 import os
 import uuid
 from datetime import datetime
-from distutils.util import strtobool
 from typing import Optional, List
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel, Field
