@@ -11,3 +11,8 @@ services:
     entrypoint: "/app/start.sh"
     extra_hosts:
       - "host.docker.internal:host-gateway"
+    environment:
+      DB_URL: "${DB_URL:-postgres://postgres:postgres@host.docker.internal/postgres}"
+      # Only for prod, no effect when uvicorn is running in reload (development) mode
+      WEB_CONCURRENCY: 10
+      UVICORN_ARGS: "${UVICORN_ARGS:---reload}"
