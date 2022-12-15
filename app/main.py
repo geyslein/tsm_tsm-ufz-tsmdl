@@ -13,7 +13,6 @@ to the frost server.
 
 The APIs here doesn't include pagination for now.
 """
-import logging
 import uuid
 from datetime import datetime
 from typing import Optional, List
@@ -134,7 +133,7 @@ def get_things(datasource_id: str):
     check_datasource_id(datasource_id)
 
     result = []
-    
+
     with conn:
         cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
         cur.execute(psycopg2.sql.SQL("""
@@ -221,8 +220,8 @@ def get_datastreams(datasource_id: str, thing_id: str):
 def check_thing_id(datasource_id, thing_id):
     try:
         uuid.UUID(str(thing_id))
-    except ValueError:
-        raise HTTPException(status_code=406, detail="Thing uuid format not properly")
+    except ValueError as exc:
+        raise HTTPException(status_code=406, detail="Thing uuid format not properly") from exc
 
     with conn:
         cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
@@ -231,12 +230,15 @@ def check_thing_id(datasource_id, thing_id):
             select uuid from {schema}.thing where uuid = %(thing_id)s;
             """).format(schema=psycopg2.sql.Identifier(datasource_id)),
                         {'thing_id': thing_id})
-        except psycopg2.errors.InvalidTextRepresentation:
-            raise HTTPException(status_code=406, detail="Thing uuid format not properly")
+        except psycopg2.errors.InvalidTextRepresentation as exc:
+            raise HTTPException(status_code=406, detail="Thing uuid format not properly") from exc
 
         if not cur.fetchone():
             raise HTTPException(status_code=404, detail="Thing not found")
 
+
+def check_datastream_id(datasource_id, thing_id, datastream_id):  # pylint: disable=unused-argument
+    pass  # pylint: disable=unnecessary-pass
 
 @app.get(
     "/Datasources({datasource_id})/Things({thing_id})/Datastreams({datastream_id})/Observations",
@@ -254,11 +256,12 @@ def get_observations(
     An observation contains a measured value associated with a timestamp.
     """
     check_datasource_id(datasource_id)
-    check_thing_id(thing_id)
+    check_thing_id(datasource_id, thing_id)
+    check_datastream_id(datasource_id, thing_id, datastream_id)
 
     raise HTTPException(status_code=501, detail="Not yet implemented")
 
-    return ObservationList(value=result_list)
+    # return ObservationList(value=result_list)
 
 
 if __name__ == "__main__":
