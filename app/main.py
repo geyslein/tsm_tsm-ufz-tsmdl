@@ -13,8 +13,10 @@ to the frost server.
 
 The APIs here doesn't include pagination for now.
 """
+import os
 import uuid
 from datetime import datetime
+from distutils.util import strtobool
 from typing import Optional, List
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel, Field
@@ -85,8 +87,7 @@ class ObservationList(BaseModel):
     value: List[Observation]
 
 
-conn = psycopg2.connect("postgres://postgres:postgres@host.docker.internal/postgres")
-# conn = psycopg2.connect("postgres://postgres:postgres@localhost/postgres")
+conn = psycopg2.connect(os.environ.get("DB_URL"))
 
 @app.get("/Datasources", response_model=DatasourceList)
 def get_datasources():
@@ -265,4 +266,8 @@ def get_observations(
 
 
 if __name__ == "__main__":
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    uvicorn.run("main:app",
+                host="0.0.0.0",
+                port=8000,
+                reload=strtobool(os.environ.get("RELOAD", "False"))
+                )
