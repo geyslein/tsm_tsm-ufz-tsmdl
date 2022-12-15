@@ -1,0 +1,92 @@
+stages:
+  - freeze
+  - lint
+  - format
+  - build
+  - test
+  - release
+
+freeze-tag:
+  stage: freeze
+  image: alpine
+  artifacts:
+      expire_in: 6 weeks
+      reports:
+        dotenv:
+          - ci-job-date.env
+          - image-name.env
+          - image-url.env
+  script:
+    - echo "CI_JOB_DATE=$(date +%Y-%m-%d-%H%M%S)" >> ci-job-date.env
+    - export IMAGE_NAME=tsm-ufz-tsmdl
+    - echo "IMAGE_NAME=${IMAGE_NAME}" >> image-name.env
+    - echo "IMAGE_URL=${CI_REGISTRY_IMAGE}/${IMAGE_NAME}" >> image-url.env
+
+default:
+  image: python:3.11
+
+pylint:
+  stage: lint
+  before_script:
+    - pip install -r requirements.txt
+    - pip install pylint
+  script:
+    - pylint --disable=C,R --extension-pkg-whitelist='pydantic' --ignored-modules=psycopg2.errors app
+
+black:
+  stage: format
+  before_script:
+    - pip install -r requirements.txt
+    - pip install black
+  script:
+    - black . --diff
+
+#unit-tests:
+#  stage: test
+#  before_script:
+#    - cd src
+#    - pip install pylint black
+#    - pip install -r requirements.txt
+#  script:
+#    - echo "Start unit tests!"
+#    - python3 -m unittest discover test
+
+build-images:
+  stage: build
+  image:
+    name: gcr.io/kaniko-project/executor:debug
+    entrypoint: [""]
+  before_script:
+    - export BUILD_DATE=$(date)
+    - echo "{\"auths\":{\"$CI_REGISTRY\":{\"username\":\"$CI_REGISTRY_USER\",\"password\":\"$CI_REGISTRY_PASSWORD\"}}}" > /kaniko/.docker/config.json
+  script:
+    - /kaniko/executor --force --build-arg BUILD_DATE="${BUILD_DATE}" --context $CI_PROJECT_DIR --dockerfile $CI_PROJECT_DIR/Dockerfile --destination ${IMAGE_URL}:${CI_JOB_DATE}
+
+integration-test:
+  stage: test
+  image:
+    name: ${IMAGE_URL}:${CI_JOB_DATE}
+    entrypoint: [""]
+  services:
+    - name: postgres
+  variables:
+    POSTGRES_DB: postgres
+    POSTGRES_USER: postgres
+    POSTGRES_PASSWORD: postgres
+    DB_URL: "postgres://$POSTGRES_USER:$POSTGRES_PASSWORD@postgres/$POSTGRES_DB"
+  script:
+    - apk update && apk add curl
+    - /app/start.sh &
+    - sleep 5 && curl http://localhost:8000/Datasources
+
+add-release-tags:
+  stage: release
+  rules:
+    - if: '$CI_COMMIT_REF_SLUG == "main"'
+      when: on_success
+  image:
+    name: gcr.io/go-containerregistry/crane:debug
+    entrypoint: [ "" ]
+  script:
+    - crane auth login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY
+    - crane tag ${IMAGE_URL}:${CI_JOB_DATE} latest
