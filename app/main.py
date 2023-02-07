@@ -86,7 +86,15 @@ class ObservationList(BaseModel):
     value: List[Observation]
 
 
-conn = psycopg2.connect(os.environ.get("DB_URL"))
+conn = psycopg2.connect(
+    os.environ.get("DB_URL"),
+    connect_timeout=3,
+    # https://www.postgresql.org/docs/9.3/libpq-connect.html
+    keepalives=1,
+    keepalives_idle=20,
+    keepalives_interval=2,
+    keepalives_count=2
+)
 
 @app.get("/Datasources", response_model=DatasourceList)
 def get_datasources():
