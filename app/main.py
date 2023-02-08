@@ -105,8 +105,7 @@ def get_datasources():
     """
     result = []
 
-    with conn:
-        cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+    with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
         cur.execute("""
         select schemaname          as id,
                ''                  as name,
@@ -142,8 +141,7 @@ def get_things(datasource_id: str):
 
     result = []
 
-    with conn:
-        cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+    with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
         cur.execute(psycopg2.sql.SQL("""
         select uuid        as id,
                name        as name,
@@ -164,8 +162,7 @@ def get_things(datasource_id: str):
 
 
 def check_datasource_id(datasource_id):
-    with conn:
-        cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+    with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
         cur.execute("""
         select t.schemaname
         from pg_tables t
@@ -195,8 +192,7 @@ def get_datastreams(datasource_id: str, thing_id: str):
 
     result = []
 
-    with conn:
-        cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+    with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
         cur.execute(psycopg2.sql.SQL("""
         select d.id,
                d.name,
@@ -231,8 +227,7 @@ def check_thing_id(datasource_id, thing_id):
     except ValueError as exc:
         raise HTTPException(status_code=406, detail="Thing uuid format not properly") from exc
 
-    with conn:
-        cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+    with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
         try:
             cur.execute(psycopg2.sql.SQL("""
             select uuid from {schema}.thing where uuid = %(thing_id)s;
