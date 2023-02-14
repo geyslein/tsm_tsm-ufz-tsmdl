@@ -86,15 +86,32 @@ class ObservationList(BaseModel):
     value: List[Observation]
 
 
-conn = psycopg2.connect(
-    os.environ.get("DB_URL"),
-    connect_timeout=3,
-    # https://www.postgresql.org/docs/9.3/libpq-connect.html
-    keepalives=1,
-    keepalives_idle=20,
-    keepalives_interval=2,
-    keepalives_count=2
-)
+class DbConnection:
+    conn = None
+
+    def _init_connection(self):
+        self.conn = psycopg2.connect(
+            os.environ.get("DB_URL"),
+            connect_timeout=3,
+            # https://www.postgresql.org/docs/9.3/libpq-connect.html
+            keepalives=1,
+            keepalives_idle=20,
+            keepalives_interval=2,
+            keepalives_count=2
+        )
+
+    def get_cursor(self):
+        if self.conn is None or self.conn.closed > 0:
+            self._init_connection()
+        return self.conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+
+    def __init__(self):
+        # Open database connection on startup to fail when it's not successful
+        self._init_connection()
+
+
+conn = DbConnection()
+
 
 @app.get("/Datasources", response_model=DatasourceList)
 def get_datasources():
@@ -105,7 +122,7 @@ def get_datasources():
     """
     result = []
 
-    with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
+    with conn.get_cursor() as cur:
         cur.execute("""
         select schemaname          as id,
                ''                  as name,
@@ -141,7 +158,7 @@ def get_things(datasource_id: str):
 
     result = []
 
-    with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
+    with conn.get_cursor() as cur:
         cur.execute(psycopg2.sql.SQL("""
         select uuid        as id,
                name        as name,
@@ -162,7 +179,7 @@ def get_things(datasource_id: str):
 
 
 def check_datasource_id(datasource_id):
-    with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
+    with conn.get_cursor() as cur:
         cur.execute("""
         select t.schemaname
         from pg_tables t
@@ -192,7 +209,7 @@ def get_datastreams(datasource_id: str, thing_id: str):
 
     result = []
 
-    with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
+    with conn.get_cursor() as cur:
         cur.execute(psycopg2.sql.SQL("""
         select d.id,
                d.name,
@@ -227,7 +244,7 @@ def check_thing_id(datasource_id, thing_id):
     except ValueError as exc:
         raise HTTPException(status_code=406, detail="Thing uuid format not properly") from exc
 
-    with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
+    with conn.get_cursor() as cur:
         try:
             cur.execute(psycopg2.sql.SQL("""
             select uuid from {schema}.thing where uuid = %(thing_id)s;
