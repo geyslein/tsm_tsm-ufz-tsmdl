@@ -143,6 +143,42 @@ def get_datasources():
 
 
 @app.get(
+    "/Datasources({datasource_id})",
+    response_model=Datasource,
+    responses={"404": {"model": Message}}
+)
+def get_datasource(datasource_id: str):
+    """
+    Return a single datasource with the id in that tsm instance.
+
+    A datasource can be a database for example.
+    """
+    result = None
+
+    with conn.get_cursor() as cur:
+        cur.execute("""
+        select schemaname          as id,
+               ''                  as name,
+               ''                  as description,
+               json_build_object() as properties
+        from pg_tables t
+        where t.tablename = 'thing' and t.schemaname = %(schema)s;
+        """, {'schema': datasource_id})
+
+        result = cur.fetchone()
+
+    if not result:
+        raise HTTPException(status_code=404, detail="Datasource not found")
+
+    return Datasource(
+        id=result.get('id'),
+        name=result.get('name'),
+        description=result.get('description'),
+        properties=result.get('properties')
+    )
+
+
+@app.get(
     "/Datasources({datasource_id})/Things",
     response_model=ThingList,
     responses={"404": {"model": Message}},
@@ -179,14 +215,56 @@ def get_things(datasource_id: str):
 
 
 def check_datasource_id(datasource_id):
+    try:
+        get_datasource(datasource_id)
+        return
+    except ValueError as e:
+        raise e
+
+
+@app.get(
+    "/Datasources({datasource_id})/Things({thing_id})",
+    response_model=Thing,
+    responses={"404": {"model": Message}, "406": {"model": Message}}
+)
+def get_thing(datasource_id: str, thing_id: str):
+    """
+    Return a single thing with the id in that tsm instance.
+
+    A thing can be a measurement configuration, station, etc.
+    """
+    # Validate for a valid datasource id
+    check_datasource_id(datasource_id)
+
+    result = None
+
+    try:
+        uuid.UUID(str(thing_id))
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=406, detail="Thing uuid format not properly") from exc
+
     with conn.get_cursor() as cur:
-        cur.execute("""
-        select t.schemaname
-        from pg_tables t
-        where t.tablename = 'thing' and t.schemaname = %(schema)s;
-        """, {'schema': datasource_id})
-        if not cur.fetchone():
-            raise HTTPException(status_code=404, detail="Datasource not found")
+        cur.execute(psycopg2.sql.SQL("""
+        select uuid        as id,
+            name        as name,
+            description as description,
+            properties  as properties
+        from {schema}.thing 
+        where uuid = %(thing_id)s;
+        """).format(schema=psycopg2.sql.Identifier(datasource_id)), {'thing_id': thing_id})
+
+        result = cur.fetchone()
+
+    if not result:
+        raise HTTPException(status_code=404, detail="Thing not found")
+
+    return Thing(
+        id=result.get('id'),
+        name=result.get('name'),
+        description=result.get('description'),
+        properties=result.get('properties')
+    )
 
 
 @app.get(
@@ -240,21 +318,60 @@ def get_datastreams(datasource_id: str, thing_id: str):
 
 def check_thing_id(datasource_id, thing_id):
     try:
-        uuid.UUID(str(thing_id))
-    except ValueError as exc:
-        raise HTTPException(status_code=406, detail="Thing uuid format not properly") from exc
+        get_thing(datasource_id, thing_id)
+        return
+    except ValueError as e:
+        raise e
+
+
+@app.get(
+    "/Datasources({datasource_id})/Things({thing_id})/Datastreams({datastream_id})",
+    response_model=Datastream,
+    responses={"404": {"model": Message}, "406": {"model": Message}}
+)
+def get_datastream(datasource_id: str, thing_id: str, datastream_id: int):
+    """
+    Get a single datastream of a thing.
+
+    A thing can be a measurement configuration, station, etc.
+    """
+    # Validate for a valid datasource id
+    check_datasource_id(datasource_id)
+
+    # Validate thing id
+    check_thing_id(datasource_id, thing_id)
+
+    result = None
 
     with conn.get_cursor() as cur:
-        try:
-            cur.execute(psycopg2.sql.SQL("""
-            select uuid from {schema}.thing where uuid = %(thing_id)s;
-            """).format(schema=psycopg2.sql.Identifier(datasource_id)),
-                        {'thing_id': thing_id})
-        except psycopg2.errors.InvalidTextRepresentation as exc:
-            raise HTTPException(status_code=406, detail="Thing uuid format not properly") from exc
+        cur.execute(psycopg2.sql.SQL("""
+        select d.id,
+               d.name,
+               d.description,
+               json_build_object(
+                       'column_headers', json_agg(distinct o.parameters ->> 'column_header'),
+                       'position', d.position,
+                       'created_at', d.properties ->> 'created_at'
+                   ) as properties
+        from {schema}.thing t
+                 join {schema}.datastream d on t.id = d.thing_id
+                 left join {schema}.observation o on d.id = o.datastream_id
+        where t.uuid = %(thing_id)s and d.id = %(datastream_id)s
+        group by d.id, d.name, d.description
+        order by d.id;
+        """).format(schema=psycopg2.sql.Identifier(datasource_id)), {'thing_id': thing_id, "datastream_id": datastream_id})
 
-        if not cur.fetchone():
-            raise HTTPException(status_code=404, detail="Thing not found")
+        result = cur.fetchone()
+
+    if not result:
+        raise HTTPException(status_code=404, detail="Datastream not found")
+
+    return Datastream(
+        id=result.get('id'),
+        name=result.get('name'),
+        description=result.get('description'),
+        properties=result.get('properties')
+    )
 
 
 def check_datastream_id(datasource_id, thing_id, datastream_id):  # pylint: disable=unused-argument
