@@ -103,6 +103,8 @@ class DbConnection:
     def get_cursor(self):
         if self.conn is None or self.conn.closed > 0:
             self._init_connection()
+        # Rollback potentially previous transactions to prevent InFailedSqlTransaction exceptions
+        self.conn.rollback()
         return self.conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
 
     def __init__(self):
