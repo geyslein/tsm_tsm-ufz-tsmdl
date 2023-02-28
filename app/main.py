@@ -13,6 +13,7 @@ to the frost server.
 
 The APIs here doesn't include pagination for now.
 """
+import logging
 import os
 import uuid
 from datetime import datetime
@@ -107,7 +108,8 @@ class DbConnection:
         try:
             # Rollback potentially previous transactions to prevent InFailedSqlTransaction exceptions
             self.conn.rollback()
-        except BaseException as e:
+        except BaseException as e:  # pylint: disable=W0718
+            logger.warning(e)
             self._init_connection()
         return self.conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
 
@@ -116,6 +118,7 @@ class DbConnection:
         self._init_connection()
 
 
+logger = logging.getLogger(__name__)
 conn = DbConnection()
 
 
