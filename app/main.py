@@ -13,6 +13,7 @@ to the frost server.
 
 The APIs here doesn't include pagination for now.
 """
+import logging
 import os
 import uuid
 from datetime import datetime
@@ -22,6 +23,7 @@ from pydantic import BaseModel, Field
 import psycopg2
 import psycopg2.extras
 import psycopg2.sql
+import psycopg2.errors
 import uvicorn
 
 app = FastAPI(version="0.2.0")
@@ -103,8 +105,12 @@ class DbConnection:
     def get_cursor(self):
         if self.conn is None or self.conn.closed > 0:
             self._init_connection()
-        # Rollback potentially previous transactions to prevent InFailedSqlTransaction exceptions
-        self.conn.rollback()
+        try:
+            # Rollback potentially previous transactions to prevent InFailedSqlTransaction exceptions
+            self.conn.rollback()
+        except BaseException as e:  # pylint: disable=W0718
+            logger.warning(e)
+            self._init_connection()
         return self.conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
 
     def __init__(self):
@@ -112,6 +118,7 @@ class DbConnection:
         self._init_connection()
 
 
+logger = logging.getLogger(__name__)
 conn = DbConnection()
 
 
