@@ -51,10 +51,6 @@ class Message(BaseModel):
     detail: str
 
 
-class Message(BaseModel):
-    detail: str
-
-
 class Datasource(BaseModel):
     id: str = Field(alias="@iot.id")
     name: str
