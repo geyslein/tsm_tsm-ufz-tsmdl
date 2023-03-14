@@ -13,20 +13,37 @@ to the frost server.
 
 The APIs here doesn't include pagination for now.
 """
-import logging
-import os
-import uuid
-from datetime import datetime
 from typing import Optional, List
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel, Field
+from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseSettings
 import psycopg2
 import psycopg2.extras
 import psycopg2.sql
 import psycopg2.errors
 import uvicorn
 
+
+class Settings(BaseSettings):
+    origins: List[str] = ["*"]
+
+
+settings = Settings()
 app = FastAPI(version="0.2.0")
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=settings.origins,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+
+
+class Message(BaseModel):
+    detail: str
 
 
 class Message(BaseModel):

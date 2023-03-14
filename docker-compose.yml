@@ -16,3 +16,6 @@ services:
       # Only for prod, no effect when uvicorn is running in reload (development) mode
       WEB_CONCURRENCY: 10
       UVICORN_ARGS: "${UVICORN_ARGS:---reload}"
+      # Optional CORS origins as list in json style
+      ORIGINS: "[\"*\"]"
+
