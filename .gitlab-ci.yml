@@ -79,6 +79,17 @@ integration-test:
     - /app/start.sh &
     - sleep 5 && curl http://localhost:8000/Datasources
 
+add-feature-branch-tags:
+  stage: release
+  except:
+    - "main"
+  image:
+    name: gcr.io/go-containerregistry/crane:debug
+    entrypoint: [ "" ]
+  script:
+    - crane auth login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY
+    - crane tag ${IMAGE_URL}:${CI_JOB_DATE} ${CI_COMMIT_BRANCH}
+
 add-release-tags:
   stage: release
   rules:
