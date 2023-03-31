@@ -152,7 +152,7 @@ def get_datasources():
     with conn.get_cursor() as cur:
         cur.execute("""
         select schemaname          as id,
-               schemaname                  as name,
+               schemaname          as name,
                ''                  as description,
                json_build_object() as properties
         from pg_tables t
@@ -185,7 +185,7 @@ def get_datasource(datasource_id: str):
     with conn.get_cursor() as cur:
         cur.execute("""
         select schemaname          as id,
-               ''                  as name,
+               schemaname          as name,
                ''                  as description,
                json_build_object() as properties
         from pg_tables t
